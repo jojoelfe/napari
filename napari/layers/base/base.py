@@ -25,6 +25,8 @@ class Layer(KeymapMixin, ABC):
         Scale factors for the layer.
     translate : tuple of float
         Translation values for the layer.
+    affine_transform : 4x4 array
+        Affine Matrix to be applied before translate and scale
     opacity : float
         Opacity of the layer visual, between 0.0 and 1.0.
     blending : str
@@ -109,6 +111,7 @@ class Layer(KeymapMixin, ABC):
         metadata=None,
         scale=None,
         translate=None,
+        affine_transform=None,
         opacity=1,
         blending='translucent',
         visible=True,
@@ -138,6 +141,10 @@ class Layer(KeymapMixin, ABC):
             self._translate = [0] * ndim
         else:  # covers list and array-like inputs
             self._translate = list(translate)
+        if affine_transform is None:
+            self._affine_transform = np.eye(4)
+        else:
+            self._affine_transform = affine_transform
         self._scale_view = np.ones(ndim)
         self._translate_view = np.zeros(ndim)
         self._translate_grid = np.zeros(ndim)
@@ -162,6 +169,7 @@ class Layer(KeymapMixin, ABC):
             deselect=Event,
             scale=Event,
             translate=Event,
+            affine_transform=Event,
             data=Event,
             name=Event,
             thumbnail=Event,
@@ -307,6 +315,16 @@ class Layer(KeymapMixin, ABC):
         self.events.translate()
 
     @property
+    def affine_transform(self):
+        """list: Factors to shift the layer by."""
+        return self._affine_transform
+
+    @affine_transform.setter
+    def affine_transform(self, affine_transform):
+        self._affine_transform = affine_transform
+        self.events.affine_transform()
+
+    @property
     def translate_grid(self):
         """list: Factors to shift the layer by."""
         return self._translate_grid
@@ -425,6 +443,7 @@ class Layer(KeymapMixin, ABC):
             'metadata': self.metadata,
             'scale': list(self.scale),
             'translate': list(self.translate),
+            'affine_transform': self.affine_transform,
             'opacity': self.opacity,
             'blending': self.blending,
             'visible': self.visible,
