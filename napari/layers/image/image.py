@@ -7,6 +7,7 @@ import numpy as np
 from imageio import imwrite
 from scipy import ndimage as ndi
 from skimage.transform import estimate_transform
+from vispy.visuals.transforms import MatrixTransform
 
 from ...utils.colormaps import AVAILABLE_COLORMAPS
 from ...utils.event import Event
@@ -210,6 +211,7 @@ class Image(IntensityVisualizationMixin, Layer):
         self._drag_start_image = None
         self._fix_pos_canvas = None
         self._fix_pos_image = None
+        self._temp_transform = MatrixTransform()
         self._iso_threshold = iso_threshold
         self._attenuation = attenuation
         if contrast_limits is None:
@@ -452,17 +454,20 @@ class Image(IntensityVisualizationMixin, Layer):
                 if self._fix_pos_canvas is None:
                     if self._drag_start_canvas is None:
                         self._drag_start_canvas = event.pos
-                    o = np.copy(self.affine_transform)
+                        self._temp_transform_matrix = np.copy(self.affine_transform)
+                    
                     #vector = self._drag_start - [self.coordinates[d] for d in self.dims.displayed]
-                
-                    o[3][0] = (event.pos[0] - self._drag_start_canvas[0]) * self.scale_factor
-                    o[3][1] = (event.pos[1]  - self._drag_start_canvas[1] ) * self.scale_factor
-                    self.affine_transform = o
+                    self._temp_transform.matrix = self._temp_transform_matrix
+                    self._temp_transform.translate(np.array([(event.pos[0] - self._drag_start_canvas[0]) * self.scale_factor,(event.pos[1]  - self._drag_start_canvas[1] ) * self.scale_factor,0]))
+                    #o[3][0] = (event.pos[0] - self._drag_start_canvas[0]) * self.scale_factor
+                    #o[3][1] = (event.pos[1]  - self._drag_start_canvas[1] ) * self.scale_factor
+                    self.affine_transform = np.copy(self._temp_transform.matrix)
                 else:
                     if self._drag_start_canvas is None:
                         self._drag_start_canvas = event.pos * self.scale_factor
                         self._drag_start_scale_factor = self.scale_factor
-                    estimate = estimate_transform('similarity',np.array([self._fix_pos_canvas,self._drag_start_canvas]),np.array([self._fix_pos_canvas,event.pos * self._drag_start_scale_factor]))
+                        self._temp_transform_matrix = np.copy(self.affine_transform)
+                    estimate = estimate_transform('similarity',np.array([self._fix_pos_image,self._drag_start_canvas]),np.array([self._fix_pos_canvas,event.pos * self._drag_start_scale_factor]))
                     o = np.eye(4)
                     o[0][0] = estimate.params[0][0]
                     o[0][1] = estimate.params[1][0]
@@ -479,7 +484,9 @@ class Image(IntensityVisualizationMixin, Layer):
         shift = 'Shift' in event.modifiers
 
         if self._mode == Mode.TRANSFORM and shift:
-            self._fix_pos_canvas = [self.coordinates[d] for d in self.dims.displayed][::-1]
+            self._temp_transform.matrix = np.copy(self.affine_transform)
+            self._fix_pos_image = [self.coordinates[d] for d in self.dims.displayed][::-1]
+            self._fix_pos_canvas = self._temp_transform_matrix.map(np.array[self._fix_pos_image[0],self._fix_pos_image[1],0])
 
     #     if self._mode == Mode.SELECT:
     #         if shift and self._value is not None:
