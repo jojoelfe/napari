@@ -6,6 +6,7 @@ from xml.etree.ElementTree import Element
 import numpy as np
 from imageio import imwrite
 from scipy import ndimage as ndi
+from skimage.transform import estimate_transform
 
 from ...utils.colormaps import AVAILABLE_COLORMAPS
 from ...utils.event import Event
@@ -13,7 +14,7 @@ from ...utils.status_messages import format_float
 from ..base import Layer
 from ..layer_utils import calc_data_range
 from ..intensity_mixin import IntensityVisualizationMixin
-from ._constants import Interpolation, Rendering
+from ._constants import Interpolation, Rendering, Mode
 from .image_utils import get_pyramid_and_rgb
 
 
@@ -175,6 +176,7 @@ class Image(IntensityVisualizationMixin, Layer):
         )
 
         self.events.add(
+            mode=Event,
             interpolation=Event,
             rendering=Event,
             iso_threshold=Event,
@@ -201,9 +203,13 @@ class Image(IntensityVisualizationMixin, Layer):
             self._data_view = np.zeros((1,) * self.dims.ndisplay)
         self._data_raw = self._data_view
         self._data_thumbnail = self._data_view
-
+        self._mode = Mode.PAN_ZOOM
         # Set contrast_limits and colormaps
         self._gamma = gamma
+        self._drag_start_canvas = None
+        self._drag_start_image = None
+        self._fix_pos_canvas = None
+        self._fix_pos_image = None
         self._iso_threshold = iso_threshold
         self._attenuation = attenuation
         if contrast_limits is None:
@@ -247,6 +253,50 @@ class Image(IntensityVisualizationMixin, Layer):
 
         self._update_dims()
         self.events.data()
+
+    @property
+    def mode(self):
+        """str: Interactive mode
+
+        Interactive mode. The normal, default mode is PAN_ZOOM, which
+        allows for normal interactivity with the canvas.
+
+        In ADD mode clicks of the cursor add points at the clicked location.
+
+        In SELECT mode the cursor can select points by clicking on them or
+        by dragging a box around them. Once selected points can be moved,
+        have their properties edited, or be deleted.
+        """
+        return str(self._mode)
+
+    @mode.setter
+    def mode(self, mode):
+        if isinstance(mode, str):
+            mode = Mode(mode)
+
+        if not self.editable:
+            mode = Mode.PAN_ZOOM
+
+        if mode == self._mode:
+            return
+        old_mode = self._mode
+
+        if mode == Mode.TRANSFORM:
+            self.cursor = 'pointing'
+            self.interactive = False
+            self.help = 'hold <space> to pan/zoom'
+        elif mode == Mode.PAN_ZOOM:
+            self.cursor = 'standard'
+            self.interactive = True
+            self.help = ''
+        else:
+            raise ValueError("Mode not recognized")
+
+     
+        self.status = str(mode)
+        self._mode = mode
+
+        self.events.mode(mode=mode)
 
     def _get_ndim(self):
         """Determine number of dimensions of the layer."""
@@ -393,6 +443,76 @@ class Image(IntensityVisualizationMixin, Layer):
             }
         )
         return state
+
+    def on_mouse_move(self, event):
+        """Called whenever mouse moves over canvas.
+        """
+        if self._mode == Mode.TRANSFORM:
+            if event.is_dragging:
+                if self._fix_pos_canvas is None:
+                    if self._drag_start_canvas is None:
+                        self._drag_start_canvas = event.pos
+                    o = np.copy(self.affine_transform)
+                    #vector = self._drag_start - [self.coordinates[d] for d in self.dims.displayed]
+                
+                    o[3][0] = (event.pos[0] - self._drag_start_canvas[0]) * self.scale_factor
+                    o[3][1] = (event.pos[1]  - self._drag_start_canvas[1] ) * self.scale_factor
+                    self.affine_transform = o
+                else:
+                    if self._drag_start_canvas is None:
+                        self._drag_start_canvas = event.pos * self.scale_factor
+                        self._drag_start_scale_factor = self.scale_factor
+                    estimate = estimate_transform('similarity',np.array([self._fix_pos_canvas,self._drag_start_canvas]),np.array([self._fix_pos_canvas,event.pos * self._drag_start_scale_factor]))
+                    o = np.eye(4)
+                    o[0][0] = estimate.params[0][0]
+                    o[0][1] = estimate.params[1][0]
+                    o[1][0] = estimate.params[0][1]
+                    o[1][1] = estimate.params[1][1]
+                    o[3][0] = estimate.params[0][2]
+                    o[3][1] = estimate.params[1][2]
+                    self.affine_transform = o
+                    
+                   
+    def on_mouse_press(self, event):
+        """Called whenever mouse pressed in canvas.
+        """
+        shift = 'Shift' in event.modifiers
+
+        if self._mode == Mode.TRANSFORM and shift:
+            self._fix_pos_canvas = [self.coordinates[d] for d in self.dims.displayed][::-1]
+
+    #     if self._mode == Mode.SELECT:
+    #         if shift and self._value is not None:
+    #             if self._value in self.selected_data:
+    #                 self.selected_data = [
+    #                     x for x in self.selected_data if x != self._value
+    #                 ]
+    #             else:
+    #                 self.selected_data += [self._value]
+    #         elif self._value is not None:
+    #             if self._value not in self.selected_data:
+    #                 self.selected_data = [self._value]
+    #         else:
+    #             self.selected_data = []
+    #         self._set_highlight()
+    #     elif self._mode == Mode.ADD:
+    #         self.add(self.coordinates)
+
+    def on_mouse_release(self, event):
+         """Called whenever mouse released in canvas.
+         """
+         self._drag_start_canvas = None
+         self._drag_start_image = None
+    #     if self._is_selecting:
+    #         self._is_selecting = False
+    #         if len(self._data_view) > 0:
+    #             selection = points_in_box(
+    #                 self._drag_box, self._data_view, self._size_view
+    #             )
+    #             self.selected_data = self._indices_view[selection]
+    #         else:
+    #             self.selected_data = []
+    #         self._set_highlight(force=True)
 
     def _raw_to_displayed(self, raw):
         """Determine displayed image from raw image.
