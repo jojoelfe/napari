@@ -291,6 +291,8 @@ class Image(IntensityVisualizationMixin, Layer):
             self.cursor = 'standard'
             self.interactive = True
             self.help = ''
+            self._fix_pos_canvas = None
+            self._fix_pos_image = None
         else:
             raise ValueError("Mode not recognized")
 
@@ -473,9 +475,7 @@ class Image(IntensityVisualizationMixin, Layer):
                     drag_now = self._temp_transform.map(np.array([drag_now[0],drag_now[1],0]))
                     self._temp_transform.matrix = self._temp_transform_matrix
                     drag_now = self._temp_transform.imap(np.array([drag_now[0],drag_now[1],0]))
-                    print(drag_now)
                     estimate = estimate_transform('similarity',np.array([self._fix_pos_image,self._drag_start]),np.array([self._fix_pos_canvas[:2],drag_now[:2]]))
-                    print(estimate.params)
                     o = np.eye(4)
                     o[0][0] = estimate.params[0][0]
                     o[0][1] = estimate.params[1][0]
