@@ -463,11 +463,19 @@ class Image(IntensityVisualizationMixin, Layer):
                     #o[3][1] = (event.pos[1]  - self._drag_start_canvas[1] ) * self.scale_factor
                     self.affine_transform = np.copy(self._temp_transform.matrix)
                 else:
-                    if self._drag_start_canvas is None:
-                        self._drag_start_canvas = event.pos * self.scale_factor
-                        self._drag_start_scale_factor = self.scale_factor
+                    if self._drag_start is None:
                         self._temp_transform_matrix = np.copy(self.affine_transform)
-                    estimate = estimate_transform('similarity',np.array([self._fix_pos_image,self._drag_start_canvas]),np.array([self._fix_pos_canvas,event.pos * self._drag_start_scale_factor]))
+                        self._drag_start = [self.coordinates[d] for d in self.dims.displayed][::-1]
+                    
+
+                    drag_now = [self.coordinates[d] for d in self.dims.displayed][::-1]
+                    self._temp_transform.matrix = np.copy(self.affine_transform)
+                    drag_now = self._temp_transform.map(np.array([drag_now[0],drag_now[1],0]))
+                    self._temp_transform.matrix = self._temp_transform_matrix
+                    drag_now = self._temp_transform.imap(np.array([drag_now[0],drag_now[1],0]))
+                    print(drag_now)
+                    estimate = estimate_transform('similarity',np.array([self._fix_pos_image,self._drag_start]),np.array([self._fix_pos_canvas[:2],drag_now[:2]]))
+                    print(estimate.params)
                     o = np.eye(4)
                     o[0][0] = estimate.params[0][0]
                     o[0][1] = estimate.params[1][0]
@@ -486,40 +494,13 @@ class Image(IntensityVisualizationMixin, Layer):
         if self._mode == Mode.TRANSFORM and shift:
             self._temp_transform.matrix = np.copy(self.affine_transform)
             self._fix_pos_image = [self.coordinates[d] for d in self.dims.displayed][::-1]
-            self._fix_pos_canvas = self._temp_transform_matrix.map(np.array[self._fix_pos_image[0],self._fix_pos_image[1],0])
-
-    #     if self._mode == Mode.SELECT:
-    #         if shift and self._value is not None:
-    #             if self._value in self.selected_data:
-    #                 self.selected_data = [
-    #                     x for x in self.selected_data if x != self._value
-    #                 ]
-    #             else:
-    #                 self.selected_data += [self._value]
-    #         elif self._value is not None:
-    #             if self._value not in self.selected_data:
-    #                 self.selected_data = [self._value]
-    #         else:
-    #             self.selected_data = []
-    #         self._set_highlight()
-    #     elif self._mode == Mode.ADD:
-    #         self.add(self.coordinates)
+            self._fix_pos_canvas = self._temp_transform.map(np.array([self._fix_pos_image[0],self._fix_pos_image[1],0]))
 
     def on_mouse_release(self, event):
          """Called whenever mouse released in canvas.
          """
+         self._drag_start = None
          self._drag_start_canvas = None
-         self._drag_start_image = None
-    #     if self._is_selecting:
-    #         self._is_selecting = False
-    #         if len(self._data_view) > 0:
-    #             selection = points_in_box(
-    #                 self._drag_box, self._data_view, self._size_view
-    #             )
-    #             self.selected_data = self._indices_view[selection]
-    #         else:
-    #             self.selected_data = []
-    #         self._set_highlight(force=True)
 
     def _raw_to_displayed(self, raw):
         """Determine displayed image from raw image.
