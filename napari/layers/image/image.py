@@ -455,32 +455,33 @@ class Image(IntensityVisualizationMixin, Layer):
             if event.is_dragging:
                 if self._fix_pos_canvas is None:
                     if self._drag_start_canvas is None:
+                        # Save original affine transformation
                         self._temp_transform_matrix = np.copy(self.affine_transform)
+                        
                         self._temp_transform.matrix = np.copy(self.affine_transform)
                         self._drag_start_canvas = [self.coordinates[d] for d in self.dims.displayed][::-1]
+                        # Save drag start point in "after affine transformation space"
                         self._drag_start_canvas = self._temp_transform.map(np.array([self._drag_start_canvas[0],self._drag_start_canvas[1],0]))
-                        
-                    
-                    #vector = self._drag_start - [self.coordinates[d] for d in self.dims.displayed]
+                                            
                     self._temp_transform.matrix = np.copy(self.affine_transform)
                     drag_now = [self.coordinates[d] for d in self.dims.displayed][::-1]
+                    # Amount of translation is differents between point now and point when drag started
                     drag_now = self._temp_transform.map(np.array([drag_now[0],drag_now[1],0]))
+                    # Apply translation amount to existing affine transform
                     self._temp_transform.matrix = self._temp_transform_matrix
-                    self._temp_transform.translate(np.array([(drag_now[0] - self._drag_start_canvas[0]) ,(drag_now[1]  - self._drag_start_canvas[1] ) ,0]))
-                    #o[3][0] = (event.pos[0] - self._drag_start_canvas[0]) * self.scale_factor
-                    #o[3][1] = (event.pos[1]  - self._drag_start_canvas[1] ) * self.scale_factor
+                    self._temp_transform.translate(np.array([(drag_now[0] - self._drag_start_canvas[0]) ,(drag_now[1]  - self._drag_start_canvas[1] ) ,0]))  
                     self.affine_transform = np.copy(self._temp_transform.matrix)
                 else:
                     if self._drag_start is None:
-                        self._temp_transform_matrix = np.copy(self.affine_transform)
+                        # Save point im image space where drag started
                         self._drag_start = [self.coordinates[d] for d in self.dims.displayed][::-1]
-                    
-
                     drag_now = [self.coordinates[d] for d in self.dims.displayed][::-1]
                     self._temp_transform.matrix = np.copy(self.affine_transform)
+                    # Get current point in "after affine transformation space"
                     drag_now = self._temp_transform.map(np.array([drag_now[0],drag_now[1],0]))
-                    
+                    # Affine transformation is calculated by two control point pairs: The fixed one and drag_start in image space coupled to drag_now in "after affine transform space"
                     estimate = estimate_transform('similarity',np.array([self._fix_pos_image,self._drag_start]),np.array([self._fix_pos_canvas[:2],drag_now[:2]]))
+                    # Converting skimage affine matrix to vispy matrix
                     o = np.eye(4)
                     o[0][0] = estimate.params[0][0]
                     o[0][1] = estimate.params[1][0]
@@ -498,6 +499,7 @@ class Image(IntensityVisualizationMixin, Layer):
 
         if self._mode == Mode.TRANSFORM and shift:
             self._temp_transform.matrix = np.copy(self.affine_transform)
+            # Save point in image space and in "after affine transformation space"
             self._fix_pos_image = [self.coordinates[d] for d in self.dims.displayed][::-1]
             self._fix_pos_canvas = self._temp_transform.map(np.array([self._fix_pos_image[0],self._fix_pos_image[1],0]))
 
@@ -505,7 +507,6 @@ class Image(IntensityVisualizationMixin, Layer):
          """Called whenever mouse released in canvas.
          """
          self._drag_start = None
-         self._drag_start_canvas = None
 
     def _raw_to_displayed(self, raw):
         """Determine displayed image from raw image.
