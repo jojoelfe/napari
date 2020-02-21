@@ -286,7 +286,7 @@ class Image(IntensityVisualizationMixin, Layer):
         if mode == Mode.TRANSFORM:
             self.cursor = 'pointing'
             self.interactive = False
-            self.help = 'hold <space> to pan/zoom'
+            self.help = 'drag to translate/ <shift> click to place fixed point'
         elif mode == Mode.PAN_ZOOM:
             self.cursor = 'standard'
             self.interactive = True
@@ -502,11 +502,13 @@ class Image(IntensityVisualizationMixin, Layer):
             # Save point in image space and in "after affine transformation space"
             self._fix_pos_image = [self.coordinates[d] for d in self.dims.displayed][::-1]
             self._fix_pos_canvas = self._temp_transform.map(np.array([self._fix_pos_image[0],self._fix_pos_image[1],0]))
+            self.help = 'fixed point placed, drag to rotate/scale'
 
     def on_mouse_release(self, event):
          """Called whenever mouse released in canvas.
          """
          self._drag_start = None
+         self._drag_start_canvas = None
 
     def _raw_to_displayed(self, raw):
         """Determine displayed image from raw image.
