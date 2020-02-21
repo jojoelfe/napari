@@ -455,12 +455,18 @@ class Image(IntensityVisualizationMixin, Layer):
             if event.is_dragging:
                 if self._fix_pos_canvas is None:
                     if self._drag_start_canvas is None:
-                        self._drag_start_canvas = event.pos
                         self._temp_transform_matrix = np.copy(self.affine_transform)
+                        self._temp_transform.matrix = np.copy(self.affine_transform)
+                        self._drag_start_canvas = [self.coordinates[d] for d in self.dims.displayed][::-1]
+                        self._drag_start_canvas = self._temp_transform.map(np.array([self._drag_start_canvas[0],self._drag_start_canvas[1],0]))
+                        
                     
                     #vector = self._drag_start - [self.coordinates[d] for d in self.dims.displayed]
+                    self._temp_transform.matrix = np.copy(self.affine_transform)
+                    drag_now = [self.coordinates[d] for d in self.dims.displayed][::-1]
+                    drag_now = self._temp_transform.map(np.array([drag_now[0],drag_now[1],0]))
                     self._temp_transform.matrix = self._temp_transform_matrix
-                    self._temp_transform.translate(np.array([(event.pos[0] - self._drag_start_canvas[0]) * self.scale_factor,(event.pos[1]  - self._drag_start_canvas[1] ) * self.scale_factor,0]))
+                    self._temp_transform.translate(np.array([(drag_now[0] - self._drag_start_canvas[0]) ,(drag_now[1]  - self._drag_start_canvas[1] ) ,0]))
                     #o[3][0] = (event.pos[0] - self._drag_start_canvas[0]) * self.scale_factor
                     #o[3][1] = (event.pos[1]  - self._drag_start_canvas[1] ) * self.scale_factor
                     self.affine_transform = np.copy(self._temp_transform.matrix)
@@ -473,8 +479,7 @@ class Image(IntensityVisualizationMixin, Layer):
                     drag_now = [self.coordinates[d] for d in self.dims.displayed][::-1]
                     self._temp_transform.matrix = np.copy(self.affine_transform)
                     drag_now = self._temp_transform.map(np.array([drag_now[0],drag_now[1],0]))
-                    self._temp_transform.matrix = self._temp_transform_matrix
-                    drag_now = self._temp_transform.imap(np.array([drag_now[0],drag_now[1],0]))
+                    
                     estimate = estimate_transform('similarity',np.array([self._fix_pos_image,self._drag_start]),np.array([self._fix_pos_canvas[:2],drag_now[:2]]))
                     o = np.eye(4)
                     o[0][0] = estimate.params[0][0]
