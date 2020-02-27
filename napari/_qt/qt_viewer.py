@@ -229,7 +229,11 @@ class QtViewer(QSplitter):
         vispy_layer = create_vispy_visual(layer)
         vispy_layer.camera = self.view.camera
         vispy_layer.node.parent = self.view.scene
+        vispy_layer.annotation_node.parent = self.view.scene
         vispy_layer.order = len(layers)
+        # Very ugly, but assures interaction_box is on top
+        vispy_layer.annotation_node.order = len(layers) + 1
+
         self.layer_to_visual[layer] = vispy_layer
 
     def _remove_layer(self, event):

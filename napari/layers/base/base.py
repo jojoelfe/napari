@@ -5,6 +5,7 @@ from xml.etree.ElementTree import Element, tostring
 import numpy as np
 from skimage import img_as_ubyte
 from ._constants import Blending
+from ..interaction_box import InteractionBox
 
 from ...components import Dims
 from ...utils.event import EmitterGroup, Event
@@ -145,6 +146,7 @@ class Layer(KeymapMixin, ABC):
         self._position = (0,) * self.dims.ndisplay
         self.is_pyramid = False
         self._editable = True
+        self._interaction_box = InteractionBox()
 
         self._thumbnail_shape = (32, 32, 4)
         self._thumbnail = np.zeros(self._thumbnail_shape, dtype=np.uint8)

@@ -1,6 +1,9 @@
 from vispy.gloo import gl
 from vispy.app import Canvas
 from vispy.visuals.transforms import STTransform
+from vispy.scene.visuals import Line, Compound, Markers
+
+import numpy as np
 from abc import ABC, abstractmethod
 
 
@@ -46,6 +49,8 @@ class VispyBaseLayer(ABC):
         self.layer = layer
         self.node = node
 
+        self.annotation_node = Compound([Line(), Markers()])
+
         MAX_TEXTURE_SIZE_2D, MAX_TEXTURE_SIZE_3D = get_max_texture_sizes()
         self.MAX_TEXTURE_SIZE_2D = MAX_TEXTURE_SIZE_2D
         self.MAX_TEXTURE_SIZE_3D = MAX_TEXTURE_SIZE_3D
@@ -60,6 +65,9 @@ class VispyBaseLayer(ABC):
         self.layer.events.blending.connect(self._on_blending_change)
         self.layer.events.scale.connect(self._on_scale_change)
         self.layer.events.translate.connect(self._on_translate_change)
+        self.layer._interaction_box.events.points_changed.connect(
+            self._on_interaction_box_change
+        )
 
     @property
     def _master_transform(self):
@@ -89,6 +97,16 @@ class VispyBaseLayer(ABC):
     def scale(self):
         """sequence of float: Scale factors."""
         return self._master_transform.scale
+
+    @property
+    def marker_node(self):
+        """sequence of float: Scale factors."""
+        return self.annotation_node._subvisuals[1]
+
+    @property
+    def line_node(self):
+        """sequence of float: Scale factors."""
+        return self.annotation_node._subvisuals[0]
 
     @scale.setter
     def scale(self, scale):
@@ -201,6 +219,45 @@ class VispyBaseLayer(ABC):
         """Called whenever the canvas is drawn.
         """
         self.layer.scale_factor = self.scale_factor
+
+    def _on_interaction_box_change(self, event):
+        """Called whenever the interaction box changed.
+        """
+
+        # Compute the location and properties of the vertices and box that
+        # need to get rendered
+        (
+            vertices,
+            face_color,
+            edge_color,
+            pos,
+            width,
+        ) = self.layer._interaction_box._compute_vertices_and_box()
+
+        if vertices is None or len(vertices) == 0:
+            vertices = np.zeros((1, self.layer.dims.ndisplay))
+            size = 0
+        else:
+            vertices = vertices + 0.5
+            size = 10
+
+        self.marker_node.set_data(
+            vertices,
+            size=size,
+            face_color=face_color,
+            edge_color=edge_color,
+            edge_width=1.5,
+            symbol='square',
+            scaling=False,
+        )
+
+        if pos is None or len(pos) == 0:
+            pos = np.zeros((1, self.layer.dims.ndisplay))
+            width = 0
+        else:
+            pos = pos + 0.5
+
+        self.line_node.set_data(pos=pos, color=edge_color, width=width)
 
 
 def get_max_texture_sizes():
