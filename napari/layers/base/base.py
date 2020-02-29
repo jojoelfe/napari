@@ -146,7 +146,6 @@ class Layer(KeymapMixin, ABC):
         self._position = (0,) * self.dims.ndisplay
         self.is_pyramid = False
         self._editable = True
-        self._interaction_box = InteractionBox()
 
         self._thumbnail_shape = (32, 32, 4)
         self._thumbnail = np.zeros(self._thumbnail_shape, dtype=np.uint8)
@@ -187,6 +186,9 @@ class Layer(KeymapMixin, ABC):
         self.mouse_drag_callbacks = []
         self._persisted_mouse_event = {}
         self._mouse_drag_gen = {}
+
+        self._interaction_box = InteractionBox()
+        self._interaction_box.initialize_mouse_events(self)
 
     def __str__(self):
         """Return self.name."""
